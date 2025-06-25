@@ -16,3 +16,11 @@ intents.moderation = True
 
 
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
+
+
+@bot.event
+async def on_ready() -> None:
+    print(f"Logged in as {bot.user.name} (ID: {bot.user.id})")
+
+
+bot.run(discord_token, log_handler=handler, log_level=logging.DEBUG)
