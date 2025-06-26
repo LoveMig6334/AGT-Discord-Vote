@@ -1,9 +1,11 @@
+import asyncio
 import datetime
 import logging
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
@@ -35,7 +37,7 @@ vote_sessions = {}
 
 
 @bot.command()
-async def vtimeout(ctx, member: commands.MemberConverter, timeout_min: int = 5):
+async def vtimeout(ctx, member: discord.Member):
     """
     Vote to timeout a member for a specified duration
 
@@ -44,16 +46,17 @@ async def vtimeout(ctx, member: commands.MemberConverter, timeout_min: int = 5):
     - timeout_min: The timeout duration in minutes (default: 5)
     """
     guild_id = ctx.guild.id
-    member_id = member.id
+    target_id = member.id
 
     if guild_id not in vote_sessions:
         vote_sessions[guild_id] = {}
 
-    if member_id in vote_sessions[guild_id]:
+    # Avoid multiple votes on same member
+    if target_id in vote_sessions[guild_id]:
         await ctx.send(f"A vote to timeout {member.mention} is already in progress.")
         return
 
-    vote_sessions[guild_id][member_id] = {
+    vote_sessions[guild_id][target_id] = {
         "voters": {ctx.author.id},
         "ends_at": datetime.utcnow() + timedelta(minutes=2),
     }
@@ -61,23 +64,37 @@ async def vtimeout(ctx, member: commands.MemberConverter, timeout_min: int = 5):
         f"Vote started to timeout {member.mention}. React with ✅ to vote. Need 3 votes!"
     )
 
-    message = await ctx.send(f"React here to vote timeout for {member.mention}")
-
-    await message.add_reaction("✅")
+    msg = await ctx.send(f"React here to vote timeout for {member.mention}")
+    await msg.add_reaction("✅")
 
     def check(reaction, user):
         return (
-            user == ctx.author
+            reaction.message.id == msg.id
             and str(reaction.emoji) == "✅"
-            and reaction.message.id == message.id
+            and user.id != member.id
+            and not user.bot
         )
 
     try:
-        await bot.wait_for("reaction_add", timeout=60.0, check=check)
-    except TimeoutError:
-        await ctx.send("Vote timed out.")
-    else:
-        await ctx.send("Vote counted!")
+        while datetime.utcnow() < vote_sessions[guild_id][target_id]["ends_at"]:
+            reaction, user = await bot.wait_for(
+                "reaction_add", timeout=120, check=check
+            )
+            vote_sessions[guild_id][target_id]["voters"].add(user.id)
+
+            if len(vote_sessions[guild_id][target_id]["voters"]) >= 3:
+                await ctx.send(f"{member.mention} has been timed out for 10 minutes!")
+                duration = 600  # 10 minutes in seconds
+                await member.timeout(
+                    discord.utils.utcnow() + timedelta(seconds=duration)
+                )
+                del vote_sessions[guild_id][target_id]
+                return
+    except asyncio.TimeoutError:
+        pass
+
+    await ctx.send(f"Vote to timeout {member.mention} failed or expired.")
+    del vote_sessions[guild_id][target_id]
 
 
 bot.run(discord_token, log_handler=handler, log_level=logging.DEBUG)
