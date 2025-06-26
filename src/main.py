@@ -7,7 +7,6 @@ from pathlib import Path
 from discord.ext import commands
 from dotenv import load_dotenv
 
-from utils.command_error_handler import setup_error_handlers
 from utils.load_intents import load_intents
 
 load_dotenv()
@@ -30,7 +29,6 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 @bot.event
 async def on_ready() -> None:
     print(f"Logged in as {bot.user.name} (ID: {bot.user.id})")
-    await setup_error_handlers(bot)
 
 
 vote_sessions = {}
