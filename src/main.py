@@ -1,12 +1,13 @@
 import datetime
 import logging
 import os
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from discord.ext import commands
 from dotenv import load_dotenv
 
+from utils.command_error_handler import setup_error_handlers
 from utils.load_intents import load_intents
 
 load_dotenv()
@@ -29,13 +30,21 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 @bot.event
 async def on_ready() -> None:
     print(f"Logged in as {bot.user.name} (ID: {bot.user.id})")
+    await setup_error_handlers(bot)
 
 
 vote_sessions = {}
 
 
 @bot.command()
-async def vtimeout(ctx, member: commands.MemberConverter, timeout_min: int):
+async def vtimeout(ctx, member: commands.MemberConverter, timeout_min: int = 5):
+    """
+    Vote to timeout a member for a specified duration
+
+    Parameters:
+    - member: The member to timeout
+    - timeout_min: The timeout duration in minutes (default: 5)
+    """
     guild_id = ctx.guild.id
     member_id = member.id
 
