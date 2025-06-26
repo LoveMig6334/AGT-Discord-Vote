@@ -1,5 +1,7 @@
+import datetime
 import logging
 import os
+from datetime import timedelta
 from pathlib import Path
 
 from discord.ext import commands
@@ -27,6 +29,48 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 @bot.event
 async def on_ready() -> None:
     print(f"Logged in as {bot.user.name} (ID: {bot.user.id})")
+
+
+vote_sessions = {}
+
+
+@bot.command()
+async def votetimeout(ctx, member: commands.MemberConverter, timeout_min: int):
+    guild_id = ctx.guild.id
+    member_id = member.id
+
+    if guild_id not in vote_sessions:
+        vote_sessions[guild_id] = {}
+
+    if member_id in vote_sessions[guild_id]:
+        await ctx.send(f"A vote to timeout {member.mention} is already in progress.")
+        return
+
+    vote_sessions[guild_id][member_id] = {
+        "voters": {ctx.author.id},
+        "ends_at": datetime.utcnow() + timedelta(minutes=2),
+    }
+    await ctx.send(
+        f"Vote started to timeout {member.mention}. React with ✅ to vote. Need 3 votes!"
+    )
+
+    message = await ctx.send(f"React here to vote timeout for {member.mention}")
+
+    await message.add_reaction("✅")
+
+    def check(reaction, user):
+        return (
+            user == ctx.author
+            and str(reaction.emoji) == "✅"
+            and reaction.message.id == message.id
+        )
+
+    try:
+        await bot.wait_for("reaction_add", timeout=60.0, check=check)
+    except TimeoutError:
+        await ctx.send("Vote timed out.")
+    else:
+        await ctx.send("Vote counted!")
 
 
 bot.run(discord_token, log_handler=handler, log_level=logging.DEBUG)
