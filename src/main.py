@@ -37,7 +37,7 @@ vote_sessions = {}
 
 
 @bot.command()
-async def vtimeout(ctx, member: discord.Member):
+async def vtimeout(ctx, member: discord.Member, duration: int):
     """
     Vote to timeout a member for a specified duration
 
@@ -83,10 +83,12 @@ async def vtimeout(ctx, member: discord.Member):
             vote_sessions[guild_id][target_id]["voters"].add(user.id)
 
             if len(vote_sessions[guild_id][target_id]["voters"]) >= 3:
-                await ctx.send(f"{member.mention} has been timed out for 10 minutes!")
-                duration = 600  # 10 minutes in seconds
+                duration_sec = duration * 60
+                await ctx.send(
+                    f"{member.mention} has been timed out for {duration} minutes!"
+                )
                 await member.timeout(
-                    discord.utils.utcnow() + timedelta(seconds=duration)
+                    discord.utils.utcnow() + timedelta(seconds=duration_sec)
                 )
                 del vote_sessions[guild_id][target_id]
                 return
