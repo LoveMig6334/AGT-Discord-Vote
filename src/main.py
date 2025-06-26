@@ -35,7 +35,7 @@ vote_sessions = {}
 
 
 @bot.command()
-async def votetimeout(ctx, member: commands.MemberConverter, timeout_min: int):
+async def vtimeout(ctx, member: commands.MemberConverter, timeout_min: int):
     guild_id = ctx.guild.id
     member_id = member.id
 
