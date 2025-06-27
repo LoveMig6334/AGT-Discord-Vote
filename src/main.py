@@ -6,6 +6,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 
@@ -25,19 +26,28 @@ handler = logging.FileHandler(
 intents = load_intents()
 
 
-bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
+bot = commands.Bot(command_prefix="/", intents=intents)
 
 
 @bot.event
 async def on_ready() -> None:
+    await bot.tree.sync()
     print(f"Logged in as {bot.user.name} (ID: {bot.user.id})")
+    print("Slash command is ready and synced.")
 
 
 vote_sessions = {}
 
 
-@bot.command()
-async def vtimeout(ctx, member: discord.Member, duration: int):
+@bot.tree.command(
+    name="vtimeout", description="Vote to timeout a member for a specified duration"
+)
+@app_commands.describe(
+    member="Member to timeout", duration="Timeout duration in minutes"
+)
+async def vtimeout(
+    interaction: discord.Interaction, member: discord.Member, duration: int
+):
     """
     Vote to timeout a member for a specified duration
 
@@ -45,7 +55,7 @@ async def vtimeout(ctx, member: discord.Member, duration: int):
     - member: The member to timeout
     - timeout_min: The timeout duration in minutes (default: 5)
     """
-    guild_id = ctx.guild.id
+    guild_id = interaction.guild.id
     target_id = member.id
 
     if guild_id not in vote_sessions:
@@ -53,18 +63,21 @@ async def vtimeout(ctx, member: discord.Member, duration: int):
 
     # Avoid multiple votes on same member
     if target_id in vote_sessions[guild_id]:
-        await ctx.send(f"A vote to timeout {member.mention} is already in progress.")
+        await interaction.send(
+            f"A vote to timeout {member.mention} is already in progress."
+        )
         return
 
     vote_sessions[guild_id][target_id] = {
-        "voters": {ctx.author.id},
+        "voters": {interaction.author.id},
         "ends_at": datetime.utcnow() + timedelta(minutes=2),
     }
-    await ctx.send(
+    await interaction.send(
         f"Vote started to timeout {member.mention}. React with ✅ to vote. Need 3 votes!"
     )
 
-    msg = await ctx.send(f"React here to vote timeout for {member.mention}")
+    channel = interaction.channel
+    msg = await channel.send(f"React here to vote timeout for {member.mention}")
     await msg.add_reaction("✅")
 
     def check(reaction, user):
@@ -84,7 +97,7 @@ async def vtimeout(ctx, member: discord.Member, duration: int):
 
             if len(vote_sessions[guild_id][target_id]["voters"]) >= 3:
                 duration_sec = duration * 60
-                await ctx.send(
+                await interaction.send(
                     f"{member.mention} has been timed out for {duration} minutes!"
                 )
                 await member.timeout(
@@ -95,7 +108,7 @@ async def vtimeout(ctx, member: discord.Member, duration: int):
     except asyncio.TimeoutError:
         pass
 
-    await ctx.send(f"Vote to timeout {member.mention} failed or expired.")
+    await interaction.send(f"Vote to timeout {member.mention} failed or expired.")
     del vote_sessions[guild_id][target_id]
 
 
