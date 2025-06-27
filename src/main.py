@@ -2,7 +2,7 @@ import asyncio
 import datetime
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 import discord
